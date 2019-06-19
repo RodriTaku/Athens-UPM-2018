@@ -1,0 +1,42 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Things to run in Matlab
+% --------------------------------------------------
+%
+% * Symplectic integrator (cart_n_pendulum_sim.m)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%As most of you know Matlab, I will not go into so much detail here
+%Just as in Python, you can run the simulation by executing this code.
+%Try varying the parameters, the initial conditions, forcing and control laws
+nsteps = 500;
+param = struct('M', 1/2, 'm', 1/4, 'L', 1, 'g', 3/4);
+t0 = 0;
+q0 = [0;pi/4];
+v0 = [0;0];
+normpdf = @(x,mu,sigma) exp(-(x-mu)^2/(2*sigma^2))/sqrt(2*pi*sigma^2);
+f = @(t) normpdf(t,8,0.25)/10 - normpdf(t,27,0.25)/15;
+u = @(t,x,theta,vx,vtheta) -sin(theta)/8;
+du = @(t,x,theta,vx,vtheta) [0;0;-cos(theta)/8;0;0];
+h = 0.1;
+[ Sol, ~ ] = cart_n_pendulum_sim( t0, q0, v0, f, u, du, param, h, nsteps );
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%To animate, just run plot_cart_n_pendulum.m
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% * Controllability of the linear problem (cart_n_pendulum_linearization.m)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+X_stb = [0;pi;0;0]; %Point around which we will linearize
+[ A, B ] = cart_n_pendulum_linearization(X_stb, param);
+C = ctrb(A,B); %Generate controllability matrix
+rank(C) %Check that the rank is the same as the dimension of our space
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% * Stabilization
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+K = lqr(A,B,eye(4)/1000,1,zeros(4,1)); %Find LQR matrix K
+u_LQR = @(t,x,theta,vx,vtheta) -K*([0;theta;vx;vtheta]-X_stb)
+du_LQR = @(t,x,theta,vx,vtheta) -[0,K].';
+q0 = [0;pi-1/4]; %New initial value not too far away from X_stb so that the linearization is valid
+v0 = [0;0];
+[ Sol, ~ ] = cart_n_pendulum_sim( t0, q0, v0, f, u_LQR, du_LQR, param, h, nsteps );

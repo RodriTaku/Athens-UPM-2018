@@ -1,0 +1,57 @@
+####################################################
+# Things to run in the IPython console inside Spyder
+# --------------------------------------------------
+#
+# * Symplectic integrator (cartPendSim.py)
+#   - Free system
+####################################################
+from numpy import array, matrix, zeros, append, sin, cos, linspace, pi
+from cartPendSim import cartPendfun, cartPenddfun, cartPendsim
+from parameterStructure import paramStruct
+from scipy.integrate import odeint
+from scipy.stats import norm
+
+nsteps = 500
+param = paramStruct(cartMass=1./2, bobMass=1./4, poleLength=1., gravity=3./4) #You should try different sets of parameters
+t0 = 0
+q0 = array([0,pi/4]) #You should try different sets of initial conditions
+v0 = array([0,0])
+f = lambda t: 0
+u = lambda t, x, theta, vx, vtheta: 0
+du = lambda t, x, theta, vx, vtheta: array([0,0,0,0,0])
+h = 0.1
+
+Sol = cartPendsim( t0, q0, v0, f, u, du, param, h, nsteps )
+
+####################################################
+#   - Forced system
+####################################################
+f = lambda t: norm.pdf(t, 8, 0.25)/10 - norm.pdf(t, 27, 0.25)/15 #You should try different forcing patterns
+Sol = cartPendsim( t0, q0, v0, f, u, du, param, h, nsteps )
+
+####################################################
+#   - Controlled system
+####################################################
+u = lambda t, x, theta, vx, vtheta: -sin(theta)/8 #You should try different control patterns and remember to change its gradient
+du = lambda t, x, theta, vx, vtheta: array([0,0,-cos(theta)/8,0,0])
+Sol = cartPendsim( t0, q0, v0, f, u, du, param, h, nsteps )
+
+####################################################
+#   - LQR stabilized system - Controlled so that the final position of the cart is at x = 0
+####################################################
+Y = array([0,pi-1./4,0,0])
+X_stb = array([0,pi,0,0])
+K = array([ -0.031622776601684, 1.492798728352806, -0.281868190753674, 1.491486292367204]) #If possible, try to compute other K matrices in Matlab
+u = lambda t, x, theta, vx, vtheta: -(-K[0]*(x-X_stb[0])+K[1]*(theta-X_stb[1])+K[2]*(vx-X_stb[2])+K[3]*(vtheta-X_stb[3]))
+du = lambda t, x, theta, vx, vtheta: -append(0,K)
+Sol = cartPendsim( t0, q0, v0, f, u, du, param, h, nsteps )
+
+####################################################
+#   - LQR stabilized system - No imposition over x position
+####################################################
+u = lambda t, x, theta, vx, vtheta: -(-K[0]*X_stb[0]+K[1]*(theta-X_stb[1])+K[2]*(vx-X_stb[2])+K[3]*(vtheta-X_stb[3]))
+du = lambda t, x, theta, vx, vtheta: -append([0,0],K[1:])
+Sol = cartPendsim( t0, q0, v0, f, u, du, param, h, nsteps )
+
+####################################################
+#To animate, uncomment the corresponding commented lines in animCartPend.py and run the file
